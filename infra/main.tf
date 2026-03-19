@@ -31,7 +31,7 @@ resource "azurerm_kubernetes_cluster" "app" {
   default_node_pool {
     name                = "default"
     vm_size             = var.vm_size
-    enable_auto_scaling = true
+    auto_scaling_enabled = true
     min_count           = 1
     max_count           = 3
   }
