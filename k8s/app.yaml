@@ -1,0 +1,172 @@
+# ── RabbitMQ ──────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+---
+# ── Node Backend ──────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-node
+  template:
+    metadata:
+      labels:
+        app: backend-node
+    spec:
+      containers:
+        - name: backend-node
+          image: dolsom/backend-node:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          env:
+            - name: RABBITMQ_URL
+              value: amqp://rabbitmq:5672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-node
+spec:
+  selector:
+    app: backend-node
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+# ── Rust Backend ──────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-rust
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-rust
+  template:
+    metadata:
+      labels:
+        app: backend-rust
+    spec:
+      containers:
+        - name: backend-rust
+          image: dolsom/backend-rust:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          env:
+            - name: RABBITMQ_URL
+              value: amqp://rabbitmq:5672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-rust
+spec:
+  selector:
+    app: backend-rust
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+# ── Vue Frontend ──────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: dolsom/frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          env:
+            - name: VUE_APP_NODE_API_URL
+              value: http://backend-node:3000
+            - name: VUE_APP_RUST_API_URL
+              value: http://backend-rust:8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
